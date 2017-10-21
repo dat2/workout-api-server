@@ -49,11 +49,13 @@ struct Workout {
 
 #[get("/workouts", format = "application/json")]
 fn list_workouts(user: User) -> Json<Vec<Workout>> {
+  println!("Getting workouts for user {:?}", user);
   Json(Vec::new())
 }
 
 #[get("/workouts/<id>", format = "application/json")]
-fn get_workout(id: usize) -> Json<Workout> {
+fn get_workout(user: User, id: usize) -> Json<Workout> {
+  println!("Getting workout {} for user {:?}", id, user);
   Json(Workout {
     id: id,
     date_time: Utc::now(),
@@ -63,8 +65,8 @@ fn get_workout(id: usize) -> Json<Workout> {
 }
 
 #[post("/workouts", format = "application/json", data = "<workout>")]
-fn create_workout(workout: Json<Workout>) {
-  println!("{:?}", workout.id);
+fn create_workout(user: User, workout: Json<Workout>) {
+  println!("Creating workout {:?} for user {:?}", *workout, user);
 }
 
 // workout exercises
@@ -75,15 +77,13 @@ struct Set {
 }
 
 #[post("/my/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
-fn create_set(workout_id: usize, set: Json<Set>) {
-  println!("{:?}", workout_id);
-  print!("{:?}", set);
+fn create_set(user: User, workout_id: usize, set: Json<Set>) {
+  println!("Creating set {:?} for workout {:?} for user {:?}", set, workout_id, user);
 }
 
-#[put("/my/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
-fn update_set(workout_id: usize, set: Json<Set>) {
-  println!("{:?}", workout_id);
-  print!("{:?}", set);
+#[put("/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
+fn update_set(user: User, workout_id: usize, set: Json<Set>) {
+  println!("Updating set {:?} for workout {:?} for user {:?}", set, workout_id, user);
 }
 
 // exercises
@@ -111,7 +111,8 @@ struct CustomExercise {
 }
 
 #[get("/exercises", format = "application/json")]
-fn list_custom_exercises() -> Json<Vec<CustomExercise>> {
+fn list_custom_exercises(user: User) -> Json<Vec<CustomExercise>> {
+  println!("Listing custom exercises for user {:?}", user);
   Json(Vec::new())
 }
 
