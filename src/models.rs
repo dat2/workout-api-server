@@ -1,4 +1,5 @@
-use schema::{users, exercises, routines, routine_exercises};
+use chrono::{DateTime, Utc};
+use schema::{users, exercises, routines, routine_exercises, workouts};
 
 #[derive(Debug, Insertable)]
 #[table_name="users"]
@@ -38,4 +39,20 @@ pub struct Exercise {
   pub name: String,
   pub sets: i32,
   pub reps: i32,
+}
+
+#[derive(Debug, Insertable)]
+#[table_name="workouts"]
+pub struct NewWorkout {
+  pub user_id: i32,
+  pub routine_id: i32,
+  pub created: DateTime<Utc>,
+}
+
+#[derive(Debug, Identifiable, Queryable)]
+pub struct Workout {
+  pub id: i32,
+  pub user_id: i32,
+  pub routine_id: i32,
+  pub created: DateTime<Utc>
 }

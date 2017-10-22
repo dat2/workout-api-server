@@ -1,9 +1,10 @@
 use bcrypt::{DEFAULT_COST, hash, verify};
+use chrono::prelude::*;
 use diesel;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use errors;
-use models::{NewUser, User, Routine, RoutineExercise, Exercise};
+use models::{NewUser, User, Routine, RoutineExercise, Exercise, Workout, NewWorkout};
 
 pub fn find_user(conn: &PgConnection,
                  query_username: &str,
@@ -64,4 +65,19 @@ pub fn find_routines(conn: &PgConnection) -> errors::Result<Vec<(Routine, Vec<Ex
     .into_iter()
     .map(|vec| vec.into_iter().map(|tuple| tuple.1).collect());
   Ok(routines.into_iter().zip(grouped_routine_exercises).collect())
+}
+
+pub fn create_workout<'a>(conn: &PgConnection, user_id: i32, routine_id: i32) -> errors::Result<Workout> {
+  use schema::workouts;
+
+  let new_workout = NewWorkout {
+    user_id: user_id,
+    routine_id: routine_id,
+    created: Utc::now()
+  };
+
+  diesel::insert(&new_workout)
+    .into(workouts::table)
+    .get_result(conn)
+    .map_err(|e| e.into())
 }

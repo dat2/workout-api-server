@@ -28,10 +28,12 @@ mod errors;
 mod schema;
 mod models;
 
+use auth::UserId;
 use conn::DbConn;
 use dotenv::dotenv;
 use rocket::request::Form;
 use rocket::response::NamedFile;
+use rocket::response::status::Created;
 use rocket_contrib::Json;
 use std::convert::From;
 use std::io;
@@ -136,10 +138,22 @@ fn list_routines(conn: DbConn) -> errors::Result<Json<Vec<Routine>>> {
   let routines = db::find_routines(&*conn)?;
 
   let mut result = Vec::new();
-  for model in routines.into_iter() {
+  for model in routines {
     result.push(Routine::from(model))
   }
   Ok(Json(result))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct NewWorkout {
+  routine_id: i32,
+}
+
+#[post("/workouts", format = "application/json", data = "<new_workout>")]
+fn start_workout(user_id: UserId, conn: DbConn, new_workout: Json<NewWorkout>) -> errors::Result<Created<()>> {
+  let workout = db::create_workout(&*conn, user_id.id, new_workout.routine_id)?;
+  println!("{:?}", workout);
+  Ok(Created(format!("/workouts/{}", workout.id), None))
 }
 
 fn run() -> errors::Result<()> {
@@ -153,6 +167,7 @@ fn run() -> errors::Result<()> {
     .mount("/", routes![index])
     .mount("/static", routes![static_dir])
     .mount("/api", routes![register, login, list_routines])
+    .mount("/api/my", routes![start_workout])
     .launch();
 
   Ok(())
