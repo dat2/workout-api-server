@@ -3,7 +3,7 @@ use diesel;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use errors;
-use models::{NewUser, User};
+use models::{NewUser, User, Routine, RoutineExercise, Exercise};
 
 pub fn find_user(conn: &PgConnection,
                  query_username: &str,
@@ -12,7 +12,7 @@ pub fn find_user(conn: &PgConnection,
   use schema::users::dsl::*;
 
   let user = users.filter(username.eq(query_username))
-    .get_result::<User>(&*conn)?;
+    .get_result::<User>(conn)?;
 
   let password_matches = verify(query_password, &user.password)?;
   if !password_matches {
@@ -26,7 +26,7 @@ pub fn find_users_with_email(conn: &PgConnection, query_email: &str) -> errors::
   use schema::users::dsl::*;
 
   users.filter(email.eq(query_email))
-    .load::<User>(&*conn)
+    .load::<User>(conn)
     .map_err(|e| e.into())
 }
 
@@ -46,6 +46,38 @@ pub fn create_user<'a>(conn: &PgConnection,
 
   diesel::insert(&new_user)
     .into(users::table)
-    .get_result(&*conn)
+    .get_result(conn)
     .map_err(|e| e.into())
+}
+
+pub fn find_routines(conn: &PgConnection) -> errors::Result<Vec<(Routine, Vec<Exercise>)>> {
+  use schema::routines;
+
+  let routines: Vec<Routine> = routines::table.load(conn)?;
+
+  let mut result = Vec::new();
+  for routine in routines.into_iter() {
+    let exercises = find_exercises_for_routine(conn, &routine)?;
+    result.push((routine, exercises))
+  }
+  Ok(result)
+}
+
+fn find_exercises_for_routine(conn: &PgConnection,
+                              routine: &Routine)
+                              -> errors::Result<Vec<Exercise>> {
+  use schema::exercises::dsl::*;
+  use schema::routine_exercises::dsl::*;
+
+  let rows: Vec<(RoutineExercise, Exercise)> =
+    routine_exercises.filter(routine_id.eq(routine.id))
+      .inner_join(exercises)
+      .order(index)
+      .load(conn)?;
+
+  let mut result = Vec::new();
+  for (_, exercise) in rows.into_iter() {
+    result.push(exercise);
+  }
+  Ok(result)
 }

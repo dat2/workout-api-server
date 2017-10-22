@@ -28,14 +28,12 @@ mod errors;
 mod schema;
 mod models;
 
-use auth::UserId;
-use chrono::prelude::*;
 use conn::DbConn;
 use dotenv::dotenv;
 use rocket::request::Form;
-use rocket::response::{NamedFile, status};
+use rocket::response::NamedFile;
 use rocket_contrib::Json;
-use std::collections::HashMap;
+use std::convert::From;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -93,47 +91,27 @@ fn login(conn: DbConn, form: Form<LoginForm>) -> errors::Result<Json<Token>> {
 }
 
 #[derive(Debug, Serialize)]
-struct Workout {
+struct Routine {
   id: usize,
+  name: String,
   exercises: Vec<Exercise>,
 }
 
-#[get("/workouts", format = "application/json")]
-fn list_workouts(user_id: UserId) -> Json<Vec<Workout>> {
-  println!("Getting workouts for user {:?}", user_id);
-  Json(Vec::new())
+impl From<(models::Routine, Vec<models::Exercise>)> for Routine {
+  fn from((model, exercise_models): (models::Routine, Vec<models::Exercise>)) -> Self {
+    let mut exercises = Vec::new();
+    for exercise_model in exercise_models {
+      exercises.push(Exercise::from(exercise_model))
+    }
+
+    Routine {
+      id: model.id as usize,
+      name: model.name,
+      exercises: exercises
+    }
+  }
 }
 
-#[get("/workouts/<workout_id>", format = "application/json")]
-fn get_workout(user_id: UserId, workout_id: usize) -> Json<Workout> {
-  println!("Getting workout {} for user {:?}", workout_id, user_id);
-  Json(Workout {
-    id: workout_id,
-    exercises: Vec::new(),
-  })
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct NewWorkout {
-  exercises: HashMap<i32, Vec<Vec<usize>>>,
-}
-
-#[post("/workouts", format = "application/json", data="<new_workout>")]
-fn create_workout(user_id: UserId,
-                  new_workout: Json<NewWorkout>)
-                  -> errors::Result<status::Created<Json<Workout>>> {
-  println!("Creating new_workout {:?} for user {:?}",
-           *new_workout,
-           user_id);
-  let json = Json(Workout {
-    id: 1,
-    exercises: Vec::new(),
-  });
-
-  Ok(status::Created(format!("/api/workouts/{}", 1), Some(json)))
-}
-
-// exercises
 #[derive(Debug, Serialize)]
 struct Exercise {
   id: usize,
@@ -142,9 +120,26 @@ struct Exercise {
   reps: usize,
 }
 
-#[get("/exercises", format = "application/json")]
-fn list_exercises() -> Json<Vec<Exercise>> {
-  Json(Vec::new())
+impl From<models::Exercise> for Exercise {
+  fn from(model: models::Exercise) -> Exercise {
+    Exercise {
+      id: model.id as usize,
+      name: model.name,
+      sets: model.sets as usize,
+      reps: model.reps as usize,
+    }
+  }
+}
+
+#[get("/routines", format = "application/json")]
+fn list_routines(conn: DbConn) -> errors::Result<Json<Vec<Routine>>> {
+  let routines = db::find_routines(&*conn)?;
+
+  let mut result = Vec::new();
+  for model in routines.into_iter() {
+    result.push(Routine::from(model))
+  }
+  Ok(Json(result))
 }
 
 fn run() -> errors::Result<()> {
@@ -157,9 +152,7 @@ fn run() -> errors::Result<()> {
     .manage(pool)
     .mount("/", routes![index])
     .mount("/static", routes![static_dir])
-    .mount("/api", routes![register, login, list_exercises])
-    .mount("/api/my",
-           routes![list_workouts, get_workout, create_workout])
+    .mount("/api", routes![register, login, list_routines])
     .launch();
 
   Ok(())
