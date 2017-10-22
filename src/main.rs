@@ -1,41 +1,82 @@
-#![feature(plugin, custom_derive, decl_macro)]
+#![feature(custom_derive, decl_macro, plugin)]
 #![plugin(rocket_codegen)]
+#![recursion_limit="128"]
 
+extern crate bcrypt;
 extern crate chrono;
+#[macro_use]
+extern crate diesel;
+#[macro_use]
+extern crate diesel_codegen;
+extern crate dotenv;
 #[macro_use]
 extern crate error_chain;
 extern crate jsonwebtoken as jwt;
 extern crate rocket;
 extern crate rocket_contrib;
+extern crate r2d2_diesel;
+extern crate r2d2;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 
 mod auth;
+mod conn;
+mod db;
 mod errors;
+mod schema;
+mod models;
 
 use auth::{Claims, User};
 use chrono::prelude::*;
+use conn::DbConn;
+use dotenv::dotenv;
 use rocket::request::Form;
 use rocket_contrib::Json;
 use std::collections::HashMap;
 
-// login
+// register
 #[derive(FromForm)]
-struct LoginRequest {
-  user: String,
-  pass: String,
+struct RegisterForm {
+  email: String,
+  username: String,
+  password: String,
 }
 
-#[post("/login", data = "<login>")]
-fn login(login: Form<LoginRequest>) -> errors::Result<String> {
-  let request: LoginRequest = login.into_inner();
-  if request.user == "nick" && request.pass == "dujay" {
-    Claims::issue(1).encode()
-  } else {
-    Err(errors::ErrorKind::UserOrPasswordNotFound(request.user).into())
+#[post("/register", data = "<form>")]
+fn register(conn: DbConn, form: Form<RegisterForm>) -> errors::Result<()> {
+
+  let form: RegisterForm = form.into_inner();
+
+  let existing_users = db::find_users_with_email(&*conn, &form.email)?;
+  if existing_users.len() > 0 {
+    bail!(errors::ErrorKind::EmailAlreadyRegistered(form.email));
   }
+
+  db::create_user(&*conn, &form.email, &form.username, &form.password)?;
+
+  Ok(())
+}
+
+// login
+#[derive(FromForm)]
+struct LoginForm {
+  username: String,
+  password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TokenIssued {
+  token: String,
+}
+
+#[post("/login", data = "<form>")]
+fn login(conn: DbConn, form: Form<LoginForm>) -> errors::Result<Json<TokenIssued>> {
+  let form: LoginForm = form.into_inner();
+  let user = db::find_user(&*conn, &form.username, &form.password)?;
+  let token = Claims::issue(user.id).encode()?;
+  Ok(Json(TokenIssued { token: token }))
 }
 
 // workout
@@ -44,7 +85,7 @@ struct Workout {
   id: usize,
   date_time: DateTime<Utc>,
   exercises: Vec<Exercise>,
-  sets: HashMap<usize, Vec<Set>>
+  sets: HashMap<usize, Vec<Set>>,
 }
 
 #[get("/workouts", format = "application/json")]
@@ -60,7 +101,7 @@ fn get_workout(user: User, id: usize) -> Json<Workout> {
     id: id,
     date_time: Utc::now(),
     exercises: Vec::new(),
-    sets: HashMap::new()
+    sets: HashMap::new(),
   })
 }
 
@@ -78,12 +119,18 @@ struct Set {
 
 #[post("/my/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
 fn create_set(user: User, workout_id: usize, set: Json<Set>) {
-  println!("Creating set {:?} for workout {:?} for user {:?}", set, workout_id, user);
+  println!("Creating set {:?} for workout {:?} for user {:?}",
+           set,
+           workout_id,
+           user);
 }
 
 #[put("/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
 fn update_set(user: User, workout_id: usize, set: Json<Set>) {
-  println!("Updating set {:?} for workout {:?} for user {:?}", set, workout_id, user);
+  println!("Updating set {:?} for workout {:?} for user {:?}",
+           set,
+           workout_id,
+           user);
 }
 
 // exercises
@@ -116,9 +163,15 @@ fn list_custom_exercises(user: User) -> Json<Vec<CustomExercise>> {
   Json(Vec::new())
 }
 
-fn main() {
+fn run() -> errors::Result<()> {
+
+  dotenv()?;
+
+  let pool = conn::pool()?;
+
   rocket::ignite()
-    .mount("/api", routes![login, list_exercises])
+    .manage(pool)
+    .mount("/api", routes![register, login, list_exercises])
     .mount("/api/my",
            routes![list_workouts,
                    get_workout,
@@ -127,4 +180,8 @@ fn main() {
                    update_set,
                    list_custom_exercises])
     .launch();
+
+  Ok(())
 }
+
+quick_main!(run);

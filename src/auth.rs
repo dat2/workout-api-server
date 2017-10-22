@@ -6,6 +6,7 @@ use rocket::Request;
 use rocket::http::Status;
 use rocket::outcome;
 use rocket::request::{FromRequest, Outcome};
+use std::env;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -29,18 +30,16 @@ impl FromStr for Bearer {
   }
 }
 
-static JWT_SECRET: &'static str = "VERY_SECRET";
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
   pub iss: String,
-  pub sub: usize,
+  pub sub: i32,
   pub iat: i64,
   pub exp: i64,
 }
 
 impl Claims {
-  pub fn issue(sub: usize) -> Claims {
+  pub fn issue(sub: i32) -> Claims {
     let utc: DateTime<Utc> = Utc::now();
     let iat = utc.timestamp();
     let exp = (utc + Duration::days(7)).timestamp();
@@ -55,7 +54,14 @@ impl Claims {
   }
 
   pub fn encode(self) -> errors::Result<String> {
-    encode(&Header::default(), &self, JWT_SECRET.as_bytes()).map_err(|err| err.into())
+    let secret = env::var("JWT_SECRET")?;
+    encode(&Header::default(), &self, secret.as_bytes()).map_err(|err| err.into())
+  }
+
+  pub fn decode(s: &str) -> errors::Result<Claims> {
+    let secret = env::var("JWT_SECRET")?;
+    let token = decode::<Claims>(s, secret.as_bytes(), &Validation::default())?;
+    Ok(token.claims)
   }
 
   fn ensure(self, token: String) -> errors::Result<Self> {
@@ -68,18 +74,9 @@ impl Claims {
   }
 }
 
-impl FromStr for Claims {
-  type Err = errors::Error;
-
-  fn from_str(s: &str) -> errors::Result<Self> {
-    let token = decode::<Claims>(s, JWT_SECRET.as_bytes(), &Validation::default())?;
-    Ok(token.claims)
-  }
-}
-
 #[derive(Debug)]
 pub struct User {
-  pub id: usize,
+  pub id: i32,
 }
 
 impl<'a, 'r> FromRequest<'a, 'r> for User {
@@ -90,20 +87,12 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
     let claims_result = header_map.get_one("Authorization")
       .ok_or_else(|| errors::ErrorKind::MissingAuthorizationHeader.into())
       .and_then(|value| value.parse::<Bearer>())
-      .and_then(|bearer| {
-        bearer.token.parse::<Claims>().map(|claims| (bearer.token.clone(), claims))
-      })
+      .and_then(|bearer| Claims::decode(&bearer.token).map(|claims| (bearer.token.clone(), claims)))
       .and_then(|(token, claims)| claims.ensure(token));
 
     match claims_result {
-      Ok(claims) => {
-        outcome::Outcome::Success(User {
-          id: claims.sub
-        })
-      },
-      Err(e) => {
-        outcome::Outcome::Failure((Status::Unauthorized, e))
-      }
+      Ok(claims) => outcome::Outcome::Success(User { id: claims.sub }),
+      Err(e) => outcome::Outcome::Failure((Status::Unauthorized, e)),
     }
   }
 }
