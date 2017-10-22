@@ -51,33 +51,17 @@ pub fn create_user<'a>(conn: &PgConnection,
 }
 
 pub fn find_routines(conn: &PgConnection) -> errors::Result<Vec<(Routine, Vec<Exercise>)>> {
+  use schema::exercises;
   use schema::routines;
+  use schema::routine_exercises;
 
   let routines: Vec<Routine> = routines::table.load(conn)?;
-
-  let mut result = Vec::new();
-  for routine in routines.into_iter() {
-    let exercises = find_exercises_for_routine(conn, &routine)?;
-    result.push((routine, exercises))
-  }
-  Ok(result)
-}
-
-fn find_exercises_for_routine(conn: &PgConnection,
-                              routine: &Routine)
-                              -> errors::Result<Vec<Exercise>> {
-  use schema::exercises::dsl::*;
-  use schema::routine_exercises::dsl::*;
-
-  let rows: Vec<(RoutineExercise, Exercise)> =
-    routine_exercises.filter(routine_id.eq(routine.id))
-      .inner_join(exercises)
-      .order(index)
-      .load(conn)?;
-
-  let mut result = Vec::new();
-  for (_, exercise) in rows.into_iter() {
-    result.push(exercise);
-  }
-  Ok(result)
+  let routine_exercises: Vec<(RoutineExercise, Exercise)> = RoutineExercise::belonging_to(&routines)
+    .order(routine_exercises::index)
+    .inner_join(exercises::table)
+    .load(conn)?;
+  let grouped_routine_exercises = routine_exercises.grouped_by(&routines)
+    .into_iter()
+    .map(|vec| vec.into_iter().map(|tuple| tuple.1).collect());
+  Ok(routines.into_iter().zip(grouped_routine_exercises).collect())
 }

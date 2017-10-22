@@ -12,8 +12,8 @@ create table routines(
 );
 
 create table routine_exercises(
-  routine_id integer references routines (id),
-  exercise_id integer references exercises (id),
+  routine_id integer not null references routines (id),
+  exercise_id integer not null references exercises (id),
   index integer not null,
-  primary key (routine_id, exercise_id, index)
+  primary key (routine_id, exercise_id)
 );

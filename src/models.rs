@@ -1,6 +1,6 @@
-use schema::{users, exercises, routines};
+use schema::{users, exercises, routines, routine_exercises};
 
-#[derive(Insertable)]
+#[derive(Debug, Insertable)]
 #[table_name="users"]
 pub struct NewUser<'a> {
   pub email: &'a str,
@@ -16,23 +16,26 @@ pub struct User {
   pub email: String,
 }
 
-#[derive(Debug, Identifiable, Queryable)]
-pub struct Exercise {
-  pub id: i32,
-  pub name: String,
-  pub sets: i32,
-  pub reps: i32,
-}
-
-#[derive(Debug, Identifiable, Queryable)]
+#[derive(Debug, Identifiable, Queryable, Associations)]
 pub struct Routine {
   pub id: i32,
   pub name: String,
 }
 
-#[derive(Debug, Queryable)]
+#[derive(Debug, Identifiable, Queryable, Associations)]
+#[primary_key(routine_id, exercise_id)]
+#[belongs_to(Routine)]
+#[belongs_to(Exercise)]
 pub struct RoutineExercise {
   pub routine_id: i32,
   pub exercise_id: i32,
   pub index: i32,
+}
+
+#[derive(Debug, Identifiable, Queryable, Associations)]
+pub struct Exercise {
+  pub id: i32,
+  pub name: String,
+  pub sets: i32,
+  pub reps: i32,
 }

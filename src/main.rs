@@ -107,7 +107,7 @@ impl From<(models::Routine, Vec<models::Exercise>)> for Routine {
     Routine {
       id: model.id as usize,
       name: model.name,
-      exercises: exercises
+      exercises: exercises,
     }
   }
 }

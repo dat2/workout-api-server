@@ -1,17 +1,17 @@
 -- create exercises
-insert into exercises (id, name, sets, reps)
+insert into exercises (name, sets, reps)
 values
-  (default, 'Squat', 5, 5),
-  (default, 'Bench Press', 5, 5),
-  (default, 'Deadlift', 1, 5),
-  (default, 'Overhead Press', 5, 5),
-  (default, 'Barbell Row', 5, 5);
+  ('Squat', 5, 5),
+  ('Bench Press', 5, 5),
+  ('Deadlift', 1, 5),
+  ('Overhead Press', 5, 5),
+  ('Barbell Row', 5, 5);
 
 -- create routines
-insert into routines (id, name)
+insert into routines (name)
 values
-  (default, 'Workout A'),
-  (default, 'Workout B');
+  ('Workout A'),
+  ('Workout B');
 
 -- routine a
 insert into routine_exercises (routine_id, exercise_id, index)
