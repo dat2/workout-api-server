@@ -11,7 +11,7 @@ diesel_codegen = { version = "0.16", features = ["postgres"] }
 dotenv = "0.10"
 error-chain = "0.11"
 jsonwebtoken = "3"
-rocket = { git = "https://github.com/SergioBenitez/Rocket.git" }
+rocket = { git = "https://github.com/SergioBenitez/Rocket.git", features = ["tls"] }
 rocket_codegen = { git = "https://github.com/SergioBenitez/Rocket.git" }
 rocket_contrib = { git = "https://github.com/SergioBenitez/Rocket.git", features = ["json"] }
 r2d2-diesel = "0.16"

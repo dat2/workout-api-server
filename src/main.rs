@@ -28,13 +28,27 @@ mod errors;
 mod schema;
 mod models;
 
-use auth::{Claims, User};
+use auth::UserId;
 use chrono::prelude::*;
 use conn::DbConn;
 use dotenv::dotenv;
 use rocket::request::Form;
+use rocket::response::NamedFile;
 use rocket_contrib::Json;
 use std::collections::HashMap;
+use std::io;
+use std::path::{Path, PathBuf};
+
+// static files
+#[get("/")]
+fn index() -> io::Result<NamedFile> {
+  NamedFile::open("static/index.html")
+}
+
+#[get("/<path..>")]
+fn static_dir(path: PathBuf) -> Option<NamedFile> {
+  NamedFile::open(Path::new("static/").join(path)).ok()
+}
 
 // register
 #[derive(FromForm)]
@@ -60,23 +74,22 @@ fn register(conn: DbConn, form: Form<RegisterForm>) -> errors::Result<()> {
 }
 
 // login
-#[derive(FromForm)]
+#[derive(Debug, FromForm)]
 struct LoginForm {
   username: String,
   password: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct TokenIssued {
+struct Token {
   token: String,
 }
 
 #[post("/login", data = "<form>")]
-fn login(conn: DbConn, form: Form<LoginForm>) -> errors::Result<Json<TokenIssued>> {
+fn login(conn: DbConn, form: Form<LoginForm>) -> errors::Result<Json<Token>> {
   let form: LoginForm = form.into_inner();
   let user = db::find_user(&*conn, &form.username, &form.password)?;
-  let token = Claims::issue(user.id).encode()?;
-  Ok(Json(TokenIssued { token: token }))
+  Ok(Json(Token { token: auth::issue_token(user.id)? }))
 }
 
 // workout
@@ -89,16 +102,16 @@ struct Workout {
 }
 
 #[get("/workouts", format = "application/json")]
-fn list_workouts(user: User) -> Json<Vec<Workout>> {
-  println!("Getting workouts for user {:?}", user);
+fn list_workouts(user_id: UserId) -> Json<Vec<Workout>> {
+  println!("Getting workouts for user {:?}", user_id);
   Json(Vec::new())
 }
 
-#[get("/workouts/<id>", format = "application/json")]
-fn get_workout(user: User, id: usize) -> Json<Workout> {
-  println!("Getting workout {} for user {:?}", id, user);
+#[get("/workouts/<workout_id>", format = "application/json")]
+fn get_workout(user_id: UserId, workout_id: usize) -> Json<Workout> {
+  println!("Getting workout {} for user {:?}", workout_id, user_id);
   Json(Workout {
-    id: id,
+    id: workout_id,
     date_time: Utc::now(),
     exercises: Vec::new(),
     sets: HashMap::new(),
@@ -106,8 +119,8 @@ fn get_workout(user: User, id: usize) -> Json<Workout> {
 }
 
 #[post("/workouts", format = "application/json", data = "<workout>")]
-fn create_workout(user: User, workout: Json<Workout>) {
-  println!("Creating workout {:?} for user {:?}", *workout, user);
+fn create_workout(user_id: UserId, workout: Json<Workout>) {
+  println!("Creating workout {:?} for user {:?}", *workout, user_id);
 }
 
 // workout exercises
@@ -118,19 +131,19 @@ struct Set {
 }
 
 #[post("/my/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
-fn create_set(user: User, workout_id: usize, set: Json<Set>) {
+fn create_set(user_id: UserId, workout_id: usize, set: Json<Set>) {
   println!("Creating set {:?} for workout {:?} for user {:?}",
            set,
            workout_id,
-           user);
+           user_id);
 }
 
 #[put("/workouts/<workout_id>/sets", format = "application/json", data = "<set>")]
-fn update_set(user: User, workout_id: usize, set: Json<Set>) {
+fn update_set(user_id: UserId, workout_id: usize, set: Json<Set>) {
   println!("Updating set {:?} for workout {:?} for user {:?}",
            set,
            workout_id,
-           user);
+           user_id);
 }
 
 // exercises
@@ -158,8 +171,8 @@ struct CustomExercise {
 }
 
 #[get("/exercises", format = "application/json")]
-fn list_custom_exercises(user: User) -> Json<Vec<CustomExercise>> {
-  println!("Listing custom exercises for user {:?}", user);
+fn list_custom_exercises(user_id: UserId) -> Json<Vec<CustomExercise>> {
+  println!("Listing custom exercises for user {:?}", user_id);
   Json(Vec::new())
 }
 
@@ -171,6 +184,8 @@ fn run() -> errors::Result<()> {
 
   rocket::ignite()
     .manage(pool)
+    .mount("/", routes![index])
+    .mount("/static", routes![static_dir])
     .mount("/api", routes![register, login, list_exercises])
     .mount("/api/my",
            routes![list_workouts,

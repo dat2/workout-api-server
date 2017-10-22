@@ -39,26 +39,12 @@ pub struct Claims {
 }
 
 impl Claims {
-  pub fn issue(sub: i32) -> Claims {
-    let utc: DateTime<Utc> = Utc::now();
-    let iat = utc.timestamp();
-    let exp = (utc + Duration::days(7)).timestamp();
-    let iss = "Workout Auth Server".to_owned();
-
-    Claims {
-      iss: iss,
-      sub: sub,
-      iat: iat,
-      exp: exp,
-    }
-  }
-
-  pub fn encode(self) -> errors::Result<String> {
+  fn encode(self) -> errors::Result<String> {
     let secret = env::var("JWT_SECRET")?;
     encode(&Header::default(), &self, secret.as_bytes()).map_err(|err| err.into())
   }
 
-  pub fn decode(s: &str) -> errors::Result<Claims> {
+  fn decode(s: &str) -> errors::Result<Claims> {
     let secret = env::var("JWT_SECRET")?;
     let token = decode::<Claims>(s, secret.as_bytes(), &Validation::default())?;
     Ok(token.claims)
@@ -74,12 +60,27 @@ impl Claims {
   }
 }
 
+pub fn issue_token(sub: i32) -> errors::Result<String> {
+  let utc: DateTime<Utc> = Utc::now();
+  let iat = utc.timestamp();
+  let exp = (utc + Duration::days(7)).timestamp();
+  let iss = "Workout Auth Server".to_owned();
+
+  let claims = Claims {
+    iss: iss,
+    sub: sub,
+    iat: iat,
+    exp: exp,
+  };
+  claims.encode()
+}
+
 #[derive(Debug)]
-pub struct User {
+pub struct UserId {
   pub id: i32,
 }
 
-impl<'a, 'r> FromRequest<'a, 'r> for User {
+impl<'a, 'r> FromRequest<'a, 'r> for UserId {
   type Error = errors::Error;
 
   fn from_request(request: &'a Request) -> Outcome<Self, Self::Error> {
@@ -91,7 +92,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
       .and_then(|(token, claims)| claims.ensure(token));
 
     match claims_result {
-      Ok(claims) => outcome::Outcome::Success(User { id: claims.sub }),
+      Ok(claims) => outcome::Outcome::Success(UserId { id: claims.sub }),
       Err(e) => outcome::Outcome::Failure((Status::Unauthorized, e)),
     }
   }
