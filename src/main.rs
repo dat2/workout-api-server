@@ -64,7 +64,7 @@ fn register(conn: DbConn, form: Form<RegisterForm>) -> errors::Result<()> {
   let form: RegisterForm = form.into_inner();
 
   let existing_users = db::find_users_with_email(&*conn, &form.email)?;
-  if existing_users.len() > 0 {
+  if !existing_users.is_empty() {
     bail!(errors::ErrorKind::EmailAlreadyRegistered(form.email));
   }
 
