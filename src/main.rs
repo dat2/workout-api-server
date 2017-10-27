@@ -31,8 +31,9 @@ mod models;
 use auth::UserId;
 use conn::DbConn;
 use dotenv::dotenv;
+use rocket::http::Cookies;
 use rocket::request::Form;
-use rocket::response::NamedFile;
+use rocket::response::{NamedFile, Redirect};
 use rocket::response::status::Created;
 use rocket_contrib::Json;
 use std::convert::From;
@@ -50,11 +51,6 @@ fn static_dir(path: PathBuf) -> Option<NamedFile> {
   NamedFile::open(Path::new("static/").join(path)).ok()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Token {
-  token: String,
-}
-
 // register
 #[derive(FromForm)]
 struct RegisterForm {
@@ -64,7 +60,7 @@ struct RegisterForm {
 }
 
 #[post("/register", data = "<form>")]
-fn register(conn: DbConn, form: Form<RegisterForm>) -> errors::Result<Json<Token>> {
+fn register(mut cookies: Cookies, conn: DbConn, form: Form<RegisterForm>) -> errors::Result<Redirect> {
   let form: RegisterForm = form.into_inner();
 
   let existing_users = db::find_users_with_email(&*conn, &form.email)?;
@@ -73,8 +69,8 @@ fn register(conn: DbConn, form: Form<RegisterForm>) -> errors::Result<Json<Token
   }
 
   let user = db::create_user(&*conn, &form.email, &form.username, &form.password)?;
-  let token = auth::issue_token(user.id)?;
-  Ok(Json(Token { token: token }))
+  auth::add_user_cookie(&mut cookies, &user);
+  Ok(Redirect::to("/"))
 }
 
 // login
@@ -85,11 +81,11 @@ struct LoginForm {
 }
 
 #[post("/login", data = "<form>")]
-fn login(conn: DbConn, form: Form<LoginForm>) -> errors::Result<Json<Token>> {
+fn login(mut cookies: Cookies, conn: DbConn, form: Form<LoginForm>) -> errors::Result<Redirect> {
   let form: LoginForm = form.into_inner();
   let user = db::find_user(&*conn, &form.username, &form.password)?;
-  let token = auth::issue_token(user.id)?;
-  Ok(Json(Token { token: token }))
+  auth::add_user_cookie(&mut cookies, &user);
+  Ok(Redirect::to("/"))
 }
 
 #[derive(Debug, Serialize)]
@@ -152,7 +148,6 @@ struct NewWorkout {
 #[post("/workouts", format = "application/json", data = "<new_workout>")]
 fn start_workout(user_id: UserId, conn: DbConn, new_workout: Json<NewWorkout>) -> errors::Result<Created<()>> {
   let workout = db::create_workout(&*conn, user_id.id, new_workout.routine_id)?;
-  println!("{:?}", workout);
   Ok(Created(format!("/workouts/{}", workout.id), None))
 }
 
