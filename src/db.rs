@@ -57,23 +57,26 @@ pub fn find_routines(conn: &PgConnection) -> errors::Result<Vec<(Routine, Vec<Ex
   use schema::routine_exercises;
 
   let routines: Vec<Routine> = routines::table.load(conn)?;
-  let routine_exercises: Vec<(RoutineExercise, Exercise)> = RoutineExercise::belonging_to(&routines)
-    .order(routine_exercises::index)
-    .inner_join(exercises::table)
-    .load(conn)?;
+  let routine_exercises: Vec<(RoutineExercise, Exercise)> =
+    RoutineExercise::belonging_to(&routines).order(routine_exercises::index)
+      .inner_join(exercises::table)
+      .load(conn)?;
   let grouped_routine_exercises = routine_exercises.grouped_by(&routines)
     .into_iter()
     .map(|vec| vec.into_iter().map(|tuple| tuple.1).collect());
   Ok(routines.into_iter().zip(grouped_routine_exercises).collect())
 }
 
-pub fn create_workout<'a>(conn: &PgConnection, user_id: i32, routine_id: i32) -> errors::Result<Workout> {
+pub fn create_workout<'a>(conn: &PgConnection,
+                          user_id: i32,
+                          routine_id: i32)
+                          -> errors::Result<Workout> {
   use schema::workouts;
 
   let new_workout = NewWorkout {
     user_id: user_id,
     routine_id: routine_id,
-    created: Utc::now()
+    created: Utc::now(),
   };
 
   diesel::insert(&new_workout)

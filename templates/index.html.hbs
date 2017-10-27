@@ -5,6 +5,8 @@
     <title>Workout Server</title>
   </head>
   <body>
+    <p>User Id: {{ user_id }}</p>
+
     <form action="/api/login" method="post">
       Username:<br>
       <input type="text" name="username">
@@ -12,6 +14,11 @@
       Password:<br>
       <input type="password" name="password">
       <br><br>
+      <input type="submit" value="Submit">
+    </form>
+
+    <p>logout</p>
+    <form action="/api/logout" method="post">
       <input type="submit" value="Submit">
     </form>
   </body>
