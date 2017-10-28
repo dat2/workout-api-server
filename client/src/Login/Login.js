@@ -1,6 +1,8 @@
 import React from 'react';
 import { withFormik } from 'formik';
 
+import { Container, Form, Input, Message, Button } from './LoginStyles';
+
 function login(body) {
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
@@ -13,8 +15,8 @@ function transformApiErrors(errors) {
 }
 
 const InnerLoginForm = ({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
-  <form onSubmit={handleSubmit}>
-    <input
+  <Form onSubmit={handleSubmit}>
+    <Input
       name="username"
       onBlur={handleBlur}
       onChange={handleChange}
@@ -22,8 +24,8 @@ const InnerLoginForm = ({ errors, handleBlur, handleChange, handleSubmit, isSubm
       type="text"
       value={values.username}
       />
-    {touched.username && errors.username && <div>{errors.username}</div>}
-    <input
+    {touched.username && errors.username && <Message>{errors.username}</Message>}
+    <Input
       name="password"
       onBlur={handleBlur}
       onChange={handleChange}
@@ -31,9 +33,9 @@ const InnerLoginForm = ({ errors, handleBlur, handleChange, handleSubmit, isSubm
       type="password"
       value={values.password}
       />
-    {touched.password && errors.password && <div>{errors.password}</div>}
-    <button type="submit"disabled={isSubmitting}>Login</button>
-  </form>
+    {touched.password && errors.password && <Message>{errors.password}</Message>}
+    <Button type="submit"disabled={isSubmitting}>Login</Button>
+  </Form>
 );
 
 const LoginForm = withFormik({
@@ -60,9 +62,9 @@ const LoginForm = withFormik({
 })(InnerLoginForm);
 
 const Login = ({ login }) => (
-  <div>
+  <Container>
     <LoginForm login={login}/>
-  </div>
+  </Container>
 );
 
 export default Login;
