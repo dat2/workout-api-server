@@ -79,15 +79,14 @@ fn register(mut cookies: Cookies,
 }
 
 // login
-#[derive(Debug, FromForm)]
+#[derive(Debug, Deserialize)]
 struct LoginForm {
   username: String,
   password: String,
 }
 
-#[post("/login", data = "<form>")]
-fn login(mut cookies: Cookies, conn: DbConn, form: Form<LoginForm>) -> errors::Result<Redirect> {
-  let form: LoginForm = form.into_inner();
+#[post("/login", format="application/json", data = "<form>")]
+fn login(mut cookies: Cookies, conn: DbConn, form: Json<LoginForm>) -> errors::Result<Redirect> {
   let user = db::find_user(&*conn, &form.username, &form.password)?;
   auth::add_user_cookie(&mut cookies, &user);
   Ok(Redirect::to("/"))

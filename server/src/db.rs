@@ -12,12 +12,16 @@ pub fn find_user(conn: &PgConnection,
                  -> errors::Result<User> {
   use schema::users::dsl::*;
 
-  let user = users.filter(username.eq(query_username))
-    .get_result::<User>(conn)?;
+  let user_result = users.filter(username.eq(query_username))
+    .get_result::<User>(conn);
+  if user_result.is_err() {
+    bail!(errors::ErrorKind::UserOrPasswordIncorrect(query_username.to_owned()));
+  }
+  let user = user_result.unwrap();
 
   let password_matches = verify(query_password, &user.password)?;
   if !password_matches {
-    bail!(errors::ErrorKind::UserOrPasswordNotCorrect(query_username.to_owned()));
+    bail!(errors::ErrorKind::UserOrPasswordIncorrect(query_username.to_owned()));
   }
 
   Ok(user)

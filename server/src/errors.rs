@@ -11,9 +11,9 @@ error_chain! {
   }
   errors {
     MissingCookie
-    UserOrPasswordNotCorrect(user: String) {
-      description("user or password not correct")
-      display("user or password not correct: '{}'", user)
+    UserOrPasswordIncorrect(user: String) {
+      description("user or password incorrect")
+      display("user or password incorrect: '{}'", user)
     }
     EmailAlreadyRegistered(email: String) {
       description("email already registered")
