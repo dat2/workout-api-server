@@ -1,5 +1,5 @@
 [package]
-name = "workout-api-server"
+name = "workout-tracking-app"
 version = "0.1.0"
 authors = ["Nicholas Dujay <nickdujay@gmail.com>"]
 
