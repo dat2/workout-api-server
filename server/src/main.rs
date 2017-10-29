@@ -61,8 +61,8 @@ fn register(mut cookies: Cookies,
 
   let user = db::create_user(&*conn, &request.email, &request.username, &request.password)?;
 
-  let session = session::persist(&redis_conn, user.id)?;
-  session::add_cookie(&mut cookies, &session);
+  let session = Session::persist(&redis_conn, user.id)?;
+  session.add_cookie(&mut cookies);
 
   Ok(Redirect::to("/"))
 }
@@ -90,12 +90,13 @@ fn login(session_opt: Option<Session>,
          -> errors::Result<Json<LoginResponse>> {
 
   let user = if let Some(session) = session_opt {
+    session.extend(&redis_conn)?;
     db::find_user_by_id(&*db_conn, session.user_id)?
   } else {
     let user = db::find_user_with_username_and_password(&*db_conn, &form.username, &form.password)?;
 
-    let session = session::persist(&redis_conn, user.id)?;
-    session::add_cookie(&mut cookies, &session);
+    let session = Session::persist(&redis_conn, user.id)?;
+    session.add_cookie(&mut cookies);
 
     user
   };
@@ -110,7 +111,7 @@ fn login(session_opt: Option<Session>,
 // logout
 #[post("/logout")]
 fn logout(mut cookies: Cookies) {
-  session::remove_cookie(&mut cookies);
+  Session::remove_cookie(&mut cookies);
 }
 
 // routines
@@ -174,10 +175,12 @@ struct NewWorkout {
 
 #[post("/workouts", format = "application/json", data = "<new_workout>")]
 fn start_workout(session: Session,
-                 conn: DbConn,
+                 redis_conn: RedisConn,
+                 db_conn: DbConn,
                  new_workout: Json<NewWorkout>)
                  -> errors::Result<Created<()>> {
-  let workout = db::create_workout(&*conn, session.user_id, new_workout.routine_id)?;
+  session.extend(&redis_conn)?;
+  let workout = db::create_workout(&*db_conn, session.user_id, new_workout.routine_id)?;
   Ok(Created(format!("/workouts/{}", workout.id), None))
 }
 
