@@ -34,7 +34,6 @@ use db_conn::DbConn;
 use dotenv::dotenv;
 use redis_conn::RedisConn;
 use rocket::http::Cookies;
-use rocket::request::Form;
 use rocket::response::Redirect;
 use rocket::response::status::Created;
 use rocket_contrib::Json;
@@ -42,28 +41,28 @@ use session::Session;
 use std::convert::From;
 
 // register
-#[derive(FromForm)]
+#[derive(Deserialize)]
 struct RegisterRequest {
   email: String,
   username: String,
   password: String,
 }
 
-#[post("/register", data = "<form>")]
+#[post("/register", format="application/json", data = "<request>")]
 fn register(mut cookies: Cookies,
+            redis_conn: RedisConn,
             conn: DbConn,
-            form: Form<RegisterRequest>)
+            request: Json<RegisterRequest>)
             -> errors::Result<Redirect> {
-  let form: RegisterRequest = form.into_inner();
-
-  let existing_users = db::find_users_with_email(&*conn, &form.email)?;
+  let existing_users = db::find_users_with_email(&*conn, &request.email)?;
   if !existing_users.is_empty() {
-    bail!(errors::ErrorKind::EmailAlreadyRegistered(form.email));
+    bail!(errors::ErrorKind::EmailAlreadyRegistered(request.email.clone()));
   }
 
-  let user = db::create_user(&*conn, &form.email, &form.username, &form.password)?;
+  let user = db::create_user(&*conn, &request.email, &request.username, &request.password)?;
 
-  session::add_cookie(&mut cookies, &user);
+  let session = session::persist(&redis_conn, user.id)?;
+  session::add_cookie(&mut cookies, &session);
 
   Ok(Redirect::to("/"))
 }
@@ -95,8 +94,8 @@ fn login(session_opt: Option<Session>,
   } else {
     let user = db::find_user_with_username_and_password(&*db_conn, &form.username, &form.password)?;
 
-    session::persist(&redis_conn, user.id)?;
-    session::add_cookie(&mut cookies, &user);
+    let session = session::persist(&redis_conn, user.id)?;
+    session::add_cookie(&mut cookies, &session);
 
     user
   };
@@ -110,12 +109,11 @@ fn login(session_opt: Option<Session>,
 
 // logout
 #[post("/logout")]
-fn logout(mut cookies: Cookies) -> Redirect {
+fn logout(mut cookies: Cookies) {
   session::remove_cookie(&mut cookies);
-  Redirect::to("/")
 }
 
-// stuff
+// routines
 #[derive(Debug, Serialize)]
 struct Routine {
   id: usize,
@@ -168,6 +166,7 @@ fn list_routines(conn: DbConn) -> errors::Result<Json<Vec<Routine>>> {
   Ok(Json(result))
 }
 
+// new workout
 #[derive(Debug, Serialize, Deserialize)]
 struct NewWorkout {
   routine_id: i32,

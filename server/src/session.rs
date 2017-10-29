@@ -1,5 +1,4 @@
 use errors;
-use models::User;
 use redis::{Commands, Connection};
 use redis_conn::RedisConn;
 use rocket::Request;
@@ -8,6 +7,7 @@ use rocket::outcome::IntoOutcome;
 use rocket::request::{FromRequest, Outcome};
 use serde_json;
 
+#[derive(Debug)]
 pub struct SessionToken {
   id: i32,
 }
@@ -46,12 +46,15 @@ impl<'a, 'r> FromRequest<'a, 'r> for Session {
 
 
 pub fn get(conn: &Connection, token: SessionToken) -> errors::Result<Session> {
-  let serialized: String = conn.get(format!("session_{}", token.id))?;
+  let key = format!("session_{}", token.id);
+  let serialized: String = conn.get(key.clone())?;
+  let expiry = 15 * 50;
+  let _: () = conn.expire(key, expiry)?;
   let session: Session = serde_json::from_str(&serialized)?;
   Ok(session)
 }
 
-pub fn persist(conn: &Connection, user_id: i32) -> errors::Result<()> {
+pub fn persist(conn: &Connection, user_id: i32) -> errors::Result<Session> {
   let id: i32 = conn.incr("session_id", 1)?;
 
   let session = Session {
@@ -59,14 +62,15 @@ pub fn persist(conn: &Connection, user_id: i32) -> errors::Result<()> {
     user_id: user_id,
   };
   let serialized: String = serde_json::to_string(&session)?;
-  let _: () = conn.set(format!("session_{}", id), serialized)?;
-  Ok(())
+
+  let expiry = 15 * 50;
+
+  let _: () = conn.set_ex(format!("session_{}", id), serialized, expiry)?;
+  Ok(session)
 }
 
-pub fn add_cookie(cookies: &mut Cookies, user: &User) {
-  cookies.add_private(Cookie::build("session", user.id.to_string())
-    .path("/api")
-    .finish());
+pub fn add_cookie(cookies: &mut Cookies, session: &Session) {
+  cookies.add_private(Cookie::new("session", session.id.to_string()));
 }
 
 pub fn remove_cookie(cookies: &mut Cookies) {
