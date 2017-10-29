@@ -34,11 +34,17 @@ use db_conn::DbConn;
 use dotenv::dotenv;
 use redis_conn::RedisConn;
 use rocket::http::Cookies;
-use rocket::response::Redirect;
 use rocket::response::status::Created;
 use rocket_contrib::Json;
 use session::Session;
 use std::convert::From;
+
+#[derive(Serialize)]
+struct User {
+  id: i32,
+  email: String,
+  username: String,
+}
 
 // register
 #[derive(Deserialize)]
@@ -53,7 +59,7 @@ fn register(mut cookies: Cookies,
             redis_conn: RedisConn,
             conn: DbConn,
             request: Json<RegisterRequest>)
-            -> errors::Result<Redirect> {
+            -> errors::Result<Json<User>> {
   let existing_users = db::find_users_with_email(&*conn, &request.email)?;
   if !existing_users.is_empty() {
     bail!(errors::ErrorKind::EmailAlreadyRegistered(request.email.clone()));
@@ -64,7 +70,11 @@ fn register(mut cookies: Cookies,
   let session = Session::persist(&redis_conn, user.id)?;
   session.add_cookie(&mut cookies);
 
-  Ok(Redirect::to("/"))
+  Ok(Json(User {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+  }))
 }
 
 // login
@@ -74,20 +84,13 @@ struct LoginRequest {
   password: String,
 }
 
-#[derive(Serialize)]
-struct LoginResponse {
-  id: i32,
-  email: String,
-  username: String,
-}
-
 #[post("/login", format="application/json", data = "<form>")]
 fn login(session_opt: Option<Session>,
          mut cookies: Cookies,
          redis_conn: RedisConn,
          db_conn: DbConn,
          form: Json<LoginRequest>)
-         -> errors::Result<Json<LoginResponse>> {
+         -> errors::Result<Json<User>> {
 
   let user = if let Some(session) = session_opt {
     session.extend(&redis_conn)?;
@@ -101,7 +104,7 @@ fn login(session_opt: Option<Session>,
     user
   };
 
-  Ok(Json(LoginResponse {
+  Ok(Json(User {
     id: user.id,
     email: user.email,
     username: user.username,
@@ -112,6 +115,20 @@ fn login(session_opt: Option<Session>,
 #[post("/logout")]
 fn logout(mut cookies: Cookies) {
   Session::remove_cookie(&mut cookies);
+}
+
+// me
+#[get("/me", format="application/json")]
+fn get_me(session: Session,
+         db_conn: DbConn,
+         redis_conn: RedisConn) -> errors::Result<Json<User>> {
+  let user = db::find_user_by_id(&*db_conn, session.user_id)?;
+  session.extend(&redis_conn)?;
+  Ok(Json(User {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+  }))
 }
 
 // routines
@@ -194,7 +211,7 @@ fn run() -> errors::Result<()> {
   rocket::ignite()
     .manage(db_pool)
     .manage(redis_pool)
-    .mount("/api", routes![register, login, logout, list_routines])
+    .mount("/api", routes![register, login, logout, get_me, list_routines])
     .mount("/api/my", routes![start_workout])
     .launch();
 
