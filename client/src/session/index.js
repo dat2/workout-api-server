@@ -3,15 +3,22 @@ import { get, post } from 'redux-saga-fetch';
 const FETCH_USER_SUCCESS = 'FETCH_USER_SUCCESS';
 const FETCH_USER_FAILED = 'FETCH_USER_FAILED';
 
-export function register(body) {
+export function register(body, cb) {
   return post.json('/api/register', {
     success: response => {
-      switch(response.status) {
+      switch (response.status) {
         case 200:
-          return response.json().then(fetchUserSuccess);
+          return response.json().then(user => {
+            cb(null);
+            return fetchUserSuccess(user);
+          });
         case 500:
-          return response.json().then(fetchUserFailed);
+          return response.json().then(error => {
+            cb(error);
+            return fetchUserFailed(error);
+          });
         default:
+          cb(true);
           return fetchUserFailed();
       }
     },
@@ -24,7 +31,7 @@ export function register(body) {
 export function login(body, cb) {
   return post.json('/api/login', {
     success: response => {
-      switch(response.status) {
+      switch (response.status) {
         case 200:
           return response.json().then(user => {
             cb(null);
@@ -51,9 +58,10 @@ export function login(body, cb) {
 
 export function fetchUser() {
   return get('/api/me', {
-    success: response => response.status === 200 ?
-      response.json().then(fetchUserSuccess) :
-      fetchUserFailed(),
+    success: response =>
+      response.status === 200
+        ? response.json().then(fetchUserSuccess)
+        : fetchUserFailed(),
     fail: fetchUserFailed,
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'

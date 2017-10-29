@@ -16,9 +16,13 @@ error_chain! {
       description("Username or Password incorrect!")
       display("Username or Password incorrect!")
     }
-    EmailAlreadyRegistered(email: String) {
-      description("email already registered")
-      display("email already registered: '{}'", email)
+    EmailAlreadyRegistered {
+      description("Email already registered!")
+      display("Email already registered!")
+    }
+    UsernameExists {
+      description("Username already registered!")
+      display("Username already registered!")
     }
   }
 }

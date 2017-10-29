@@ -87,9 +87,15 @@ fn register(mut cookies: Cookies,
             conn: DbConn,
             request: Json<RegisterRequest>)
             -> errors::Result<Json<User>> {
-  let existing_users = db::find_users_with_email(&*conn, &request.email)?;
+  let existing_users = db::find_similar_users(&*conn, &request.email, &request.username)?;
   if !existing_users.is_empty() {
-    bail!(errors::ErrorKind::EmailAlreadyRegistered(request.email.clone()));
+    for user in existing_users {
+      if user.email == request.email {
+        bail!(errors::ErrorKind::EmailAlreadyRegistered);
+      } else if user.username == request.username {
+        bail!(errors::ErrorKind::UsernameExists);
+      }
+    }
   }
 
   let user = db::create_user(&*conn, &request.email, &request.username, &request.password)?;

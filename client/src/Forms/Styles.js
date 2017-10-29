@@ -1,8 +1,19 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { lighten, darken } from 'polished';
+
+const rotate360 = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+`;
 
 export const Container = styled.div`
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
 `;
@@ -49,15 +60,35 @@ export const Message = styled.div`
   color: red;
 `;
 
+export const LoadingSpinner = styled.div`
+  animation: ${rotate360} 2s linear infinite;
+  border-radius: 50%;
+  border-left: 1px solid white;
+  border-top: 1px solid ${darken(0.1, 'white')};
+  border-right: 1px solid ${darken(0.1, 'white')};
+  border-bottom: 1px solid ${darken(0.1, 'white')};
+  width: 15px;
+  height: 15px;
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  margin-right: 10px;
+`;
+
 export const Button = styled.button`
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 5px;
   margin: 5px;
   border: none;
   background-color: ${darken(0.05, 'white')};
   transition: all 0.5s ease;
-  &:hover {
+  &:hover:enabled {
     cursor: pointer;
     background-color: ${darken(0.1, 'white')};
+  }
+  ${LoadingSpinner} {
+    display: ${props => (props.submitting ? 'inline-block' : 'none')};
   }
 `;

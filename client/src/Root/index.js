@@ -55,6 +55,6 @@ const enhance = lifecycle({
   componentDidMount() {
     this.props.fetchUser();
   }
-})
+});
 
 export default enhance(Root);

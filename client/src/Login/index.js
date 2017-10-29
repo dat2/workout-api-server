@@ -1,6 +1,7 @@
 import React from 'react';
 import { withFormik } from 'formik';
 import { Redirect } from 'react-router';
+import { Link } from 'react-router-dom';
 import { compose, withState } from 'recompose';
 import Yup from 'yup';
 
@@ -11,7 +12,8 @@ import {
   InputGroup,
   Label,
   Message,
-  Button
+  Button,
+  LoadingSpinner
 } from '../Forms/Styles';
 
 const InnerLoginForm = ({
@@ -31,6 +33,7 @@ const InnerLoginForm = ({
         name="username"
         onBlur={handleBlur}
         onChange={handleChange}
+        placeholder="username"
         required={true}
         type="text"
         value={values.username}
@@ -51,8 +54,8 @@ const InnerLoginForm = ({
     </InputGroup>
     {touched.password &&
       errors.password && <Message>{errors.password}</Message>}
-    <Button type="submit" disabled={isSubmitting}>
-      Login
+    <Button type="submit" disabled={isSubmitting} submitting={isSubmitting}>
+      <LoadingSpinner /> Login
     </Button>
     {message && <Message>{message}</Message>}
   </Form>
@@ -66,10 +69,10 @@ const LoginForm = compose(
       password: Yup.string().required('Password is required!')
     }),
     mapPropsToValues: props => ({ username: '', password: '' }),
-    handleSubmit(values, { props, setSubmitting, setErrors }) {
+    handleSubmit(values, { props, setSubmitting }) {
       props.login(values, error => {
         setSubmitting(false);
-        if(error) {
+        if (error) {
           props.setMessage(error.message);
         } else {
           props.setMessage('');
@@ -85,6 +88,7 @@ const Login = ({ error, login, loggedIn }) =>
   ) : (
     <Container>
       <LoginForm error={error} login={login} />
+      <Link to="/register">Create a new account</Link>
     </Container>
   );
 

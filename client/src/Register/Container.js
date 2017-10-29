@@ -1,7 +1,7 @@
 import { connect } from 'react-redux';
 
 import Container from '.';
-import { login } from '../session';
+import { register } from '../session';
 
 function mapStateToProps({ session: { loggedIn } }) {
   return {
@@ -9,4 +9,4 @@ function mapStateToProps({ session: { loggedIn } }) {
   };
 }
 
-export default connect(mapStateToProps, { login })(Container);
+export default connect(mapStateToProps, { register })(Container);

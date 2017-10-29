@@ -35,10 +35,10 @@ pub fn find_user_with_username_and_password(conn: &PgConnection,
   Ok(user)
 }
 
-pub fn find_users_with_email(conn: &PgConnection, query_email: &str) -> errors::Result<Vec<User>> {
+pub fn find_similar_users(conn: &PgConnection, query_email: &str, query_username: &str) -> errors::Result<Vec<User>> {
   use schema::users::dsl::*;
 
-  users.filter(email.eq(query_email))
+  users.filter(email.eq(query_email).or(username.eq(query_username)))
     .load::<User>(conn)
     .map_err(|e| e.into())
 }
