@@ -33,29 +33,14 @@ use conn::DbConn;
 use dotenv::dotenv;
 use rocket::http::Cookies;
 use rocket::request::Form;
-use rocket::response::{NamedFile, Redirect};
+use rocket::response::Redirect;
 use rocket::response::status::Created;
-use rocket_contrib::{Json, Template};
-use std::collections::HashMap;
+use rocket_contrib::Json;
 use std::convert::From;
-use std::path::{Path, PathBuf};
-
-// static files
-#[get("/")]
-fn index(session_optional: Option<Session>) -> Template {
-  let mut context = HashMap::new();
-  context.insert("user_id", session_optional.map(|session| session.user_id.to_string()).unwrap_or_else(|| "null".to_string()));
-  Template::render("index", &context)
-}
-
-#[get("/<path..>")]
-fn static_dir(path: PathBuf) -> Option<NamedFile> {
-  NamedFile::open(Path::new("static/").join(path)).ok()
-}
 
 // register
 #[derive(FromForm)]
-struct RegisterForm {
+struct RegisterRequest {
   email: String,
   username: String,
   password: String,
@@ -64,9 +49,9 @@ struct RegisterForm {
 #[post("/register", data = "<form>")]
 fn register(mut cookies: Cookies,
             conn: DbConn,
-            form: Form<RegisterForm>)
+            form: Form<RegisterRequest>)
             -> errors::Result<Redirect> {
-  let form: RegisterForm = form.into_inner();
+  let form: RegisterRequest = form.into_inner();
 
   let existing_users = db::find_users_with_email(&*conn, &form.email)?;
   if !existing_users.is_empty() {
@@ -79,25 +64,38 @@ fn register(mut cookies: Cookies,
 }
 
 // login
-#[derive(Debug, Deserialize)]
-struct LoginForm {
+#[derive(Deserialize)]
+struct LoginRequest {
   username: String,
   password: String,
 }
 
-#[post("/login", format="application/json", data = "<form>")]
-fn login(mut cookies: Cookies, conn: DbConn, form: Json<LoginForm>) -> errors::Result<Redirect> {
-  let user = db::find_user(&*conn, &form.username, &form.password)?;
-  auth::add_user_cookie(&mut cookies, &user);
-  Ok(Redirect::to("/"))
+#[derive(Serialize)]
+struct LoginResponse {
+  id: i32,
+  email: String,
+  username: String
 }
 
+#[post("/login", format="application/json", data = "<form>")]
+fn login(mut cookies: Cookies, conn: DbConn, form: Json<LoginRequest>) -> errors::Result<Json<LoginResponse>> {
+  let user = db::find_user(&*conn, &form.username, &form.password)?;
+  auth::add_user_cookie(&mut cookies, &user);
+  Ok(Json(LoginResponse {
+    id: user.id,
+    email: user.email,
+    username: user.username
+  }))
+}
+
+// logout
 #[post("/logout")]
 fn logout(mut cookies: Cookies) -> Redirect {
   auth::remove_user_cookie(&mut cookies);
   Redirect::to("/")
 }
 
+// stuff
 #[derive(Debug, Serialize)]
 struct Routine {
   id: usize,
@@ -172,11 +170,8 @@ fn run() -> errors::Result<()> {
 
   rocket::ignite()
     .manage(pool)
-    .mount("/", routes![index])
-    .mount("/static", routes![static_dir])
     .mount("/api", routes![register, login, logout, list_routines])
     .mount("/api/my", routes![start_workout])
-    .attach(Template::fairing())
     .launch();
 
   Ok(())

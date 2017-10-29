@@ -2,8 +2,8 @@ import React from 'react';
 import { Redirect, Route, Switch } from 'react-router';
 import { BrowserRouter, Link } from 'react-router-dom';
 
-import Login from '../Login/LoginContainer';
-import Workout from '../Workout/Workout';
+import Login from '../Login/Container';
+import Workout from '../Workout';
 
 const App = () => (
   <div>

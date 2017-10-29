@@ -1,13 +1,15 @@
 import React from 'react';
 import { withFormik } from 'formik';
+import { Redirect } from 'react-router';
 
-import { Container, Form, Input, Message, Button } from './LoginStyles';
+import { Container, Form, Input, Message, Button } from './Styles';
 
-function login(body) {
+function loginApi(body) {
   const headers = new Headers();
   headers.append('Content-Type', 'application/json');
 
-  return fetch('/api/login', { method: 'POST', headers, body: JSON.stringify(body) });
+  return fetch('/api/login', { method: 'POST', headers, body: JSON.stringify(body) })
+    .then(response => response.json());
 }
 
 function transformApiErrors(errors) {
@@ -52,19 +54,22 @@ const LoginForm = withFormik({
   },
   async handleSubmit(values, { props, setSubmitting, setErrors }) {
     try {
-      const user = await login(values);
+      const user = await loginApi(values);
+      setSubmitting(false);
       props.login({ user });
     } catch(err) {
+      setSubmitting(false);
       setErrors(transformApiErrors(err));
     }
-    setSubmitting(false);
   }
 })(InnerLoginForm);
 
-const Login = ({ login }) => (
-  <Container>
-    <LoginForm login={login}/>
-  </Container>
+const Login = ({ login, loggedIn }) => (
+  loggedIn ?
+    <Redirect to='/' /> :
+    <Container>
+      <LoginForm login={login} />
+    </Container>
 );
 
 export default Login;

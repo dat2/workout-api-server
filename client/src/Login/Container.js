@@ -1,6 +1,7 @@
 import { connect } from 'react-redux';
 
-import Root from './Root';
+import Login from '.';
+import { login } from '../session';
 
 function mapStateToProps({ session: { loggedIn } }) {
   return {
@@ -8,4 +9,4 @@ function mapStateToProps({ session: { loggedIn } }) {
   };
 }
 
-export default connect(mapStateToProps)(Root);
+export default connect(mapStateToProps, { login })(Login);
