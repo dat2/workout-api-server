@@ -6,11 +6,12 @@ error_chain! {
     DotEnv(::dotenv::Error);
     ParseIntError(::std::num::ParseIntError);
     R2D2InitializationError(::r2d2::InitializationError);
+    RedisError(::redis::RedisError);
+    SerdeJsonError(::serde_json::Error);
     Utf8(::std::str::Utf8Error);
     VarError(::std::env::VarError);
   }
   errors {
-    MissingCookie
     UserOrPasswordIncorrect(user: String) {
       description("user or password incorrect")
       display("user or password incorrect: '{}'", user)

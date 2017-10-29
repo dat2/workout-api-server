@@ -11,31 +11,34 @@ extern crate diesel_codegen;
 extern crate dotenv;
 #[macro_use]
 extern crate error_chain;
-extern crate jsonwebtoken as jwt;
+extern crate r2d2;
+extern crate r2d2_diesel;
+extern crate r2d2_redis;
+extern crate redis;
 extern crate rocket;
 extern crate rocket_contrib;
-extern crate r2d2_diesel;
-extern crate r2d2;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
 
-mod auth;
-mod conn;
+mod db_conn;
 mod db;
 mod errors;
-mod schema;
 mod models;
+mod redis_conn;
+mod schema;
+mod session;
 
-use auth::Session;
-use conn::DbConn;
+use db_conn::DbConn;
 use dotenv::dotenv;
+use redis_conn::RedisConn;
 use rocket::http::Cookies;
 use rocket::request::Form;
 use rocket::response::Redirect;
 use rocket::response::status::Created;
 use rocket_contrib::Json;
+use session::Session;
 use std::convert::From;
 
 // register
@@ -59,7 +62,9 @@ fn register(mut cookies: Cookies,
   }
 
   let user = db::create_user(&*conn, &form.email, &form.username, &form.password)?;
-  auth::add_user_cookie(&mut cookies, &user);
+
+  session::add_cookie(&mut cookies, &user);
+
   Ok(Redirect::to("/"))
 }
 
@@ -74,24 +79,39 @@ struct LoginRequest {
 struct LoginResponse {
   id: i32,
   email: String,
-  username: String
+  username: String,
 }
 
 #[post("/login", format="application/json", data = "<form>")]
-fn login(mut cookies: Cookies, conn: DbConn, form: Json<LoginRequest>) -> errors::Result<Json<LoginResponse>> {
-  let user = db::find_user(&*conn, &form.username, &form.password)?;
-  auth::add_user_cookie(&mut cookies, &user);
+fn login(session_opt: Option<Session>,
+         mut cookies: Cookies,
+         redis_conn: RedisConn,
+         db_conn: DbConn,
+         form: Json<LoginRequest>)
+         -> errors::Result<Json<LoginResponse>> {
+
+  let user = if let Some(session) = session_opt {
+    db::find_user_by_id(&*db_conn, session.user_id)?
+  } else {
+    let user = db::find_user_with_username_and_password(&*db_conn, &form.username, &form.password)?;
+
+    session::persist(&redis_conn, user.id)?;
+    session::add_cookie(&mut cookies, &user);
+
+    user
+  };
+
   Ok(Json(LoginResponse {
     id: user.id,
     email: user.email,
-    username: user.username
+    username: user.username,
   }))
 }
 
 // logout
 #[post("/logout")]
 fn logout(mut cookies: Cookies) -> Redirect {
-  auth::remove_user_cookie(&mut cookies);
+  session::remove_cookie(&mut cookies);
   Redirect::to("/")
 }
 
@@ -166,10 +186,12 @@ fn run() -> errors::Result<()> {
 
   dotenv()?;
 
-  let pool = conn::pool()?;
+  let db_pool = db_conn::pool()?;
+  let redis_pool = redis_conn::pool()?;
 
   rocket::ignite()
-    .manage(pool)
+    .manage(db_pool)
+    .manage(redis_pool)
     .mount("/api", routes![register, login, logout, list_routines])
     .mount("/api/my", routes![start_workout])
     .launch();

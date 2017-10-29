@@ -25,5 +25,10 @@
     "eject": "react-scripts eject",
     "pretty": "prettier --single-quote --write src/**.js"
   },
-  "proxy": "http://localhost:8000"
+  "proxy": {
+    "/api": {
+      "cookieDomainRewrite": "http://localhost:3000",
+      "target": "http://localhost:8000"
+    }
+  }
 }

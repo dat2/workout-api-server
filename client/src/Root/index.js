@@ -27,7 +27,6 @@ const AuthenticatedRoute = ({ authenticated, component: Component, ...rest }) =>
 const Root = ({ loggedIn }) => (
   <BrowserRouter>
     <div>
-      <p>LoggedIn:{ loggedIn.toString() }</p>
       <Route path='/login' component={Login} />
       <AuthenticatedRoute authenticated={loggedIn} exact path='/' component={App} />
     </div>

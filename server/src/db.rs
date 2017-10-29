@@ -6,10 +6,18 @@ use diesel::prelude::*;
 use errors;
 use models::{NewUser, User, Routine, RoutineExercise, Exercise, Workout, NewWorkout};
 
-pub fn find_user(conn: &PgConnection,
-                 query_username: &str,
-                 query_password: &str)
-                 -> errors::Result<User> {
+pub fn find_user_by_id(conn: &PgConnection, user_id: i32) -> errors::Result<User> {
+  use schema::users::dsl::*;
+
+  users.filter(id.eq(user_id))
+    .get_result::<User>(conn)
+    .map_err(|e| e.into())
+}
+
+pub fn find_user_with_username_and_password(conn: &PgConnection,
+                                            query_username: &str,
+                                            query_password: &str)
+                                            -> errors::Result<User> {
   use schema::users::dsl::*;
 
   let user_result = users.filter(username.eq(query_username))

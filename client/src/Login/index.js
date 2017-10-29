@@ -45,10 +45,10 @@ const LoginForm = withFormik({
   validate(values, props) {
     const errors = {};
     if(!values.username) {
-      errors.username = 'Required';
+      errors.username = 'Username is required!';
     }
     if(!values.password) {
-      errors.password = 'Required';
+      errors.password = 'Password is required!';
     }
     return errors;
   },
