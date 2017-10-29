@@ -1,6 +1,8 @@
 import React from 'react';
 import { withFormik } from 'formik';
 import { Redirect } from 'react-router';
+import { compose, withState } from 'recompose';
+import Yup from 'yup';
 
 import {
   Container,
@@ -12,28 +14,13 @@ import {
   Button
 } from '../Forms/Styles';
 
-function loginApi(body) {
-  const headers = new Headers();
-  headers.append('Content-Type', 'application/json');
-
-  return fetch('/api/login', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    credentials: 'include'
-  }).then(response => response.json());
-}
-
-function transformApiErrors(errors) {
-  return {};
-}
-
 const InnerLoginForm = ({
   errors,
   handleBlur,
   handleChange,
   handleSubmit,
   isSubmitting,
+  message,
   touched,
   values
 }) => (
@@ -67,39 +54,37 @@ const InnerLoginForm = ({
     <Button type="submit" disabled={isSubmitting}>
       Login
     </Button>
+    {message && <Message>{message}</Message>}
   </Form>
 );
 
-const LoginForm = withFormik({
-  mapPropsToValues: props => ({ username: '', password: '' }),
-  validate(values, props) {
-    const errors = {};
-    if (!values.username) {
-      errors.username = 'Username is required!';
+const LoginForm = compose(
+  withState('message', 'setMessage', ''),
+  withFormik({
+    validationSchema: Yup.object().shape({
+      username: Yup.string().required('Username is required!'),
+      password: Yup.string().required('Password is required!')
+    }),
+    mapPropsToValues: props => ({ username: '', password: '' }),
+    handleSubmit(values, { props, setSubmitting, setErrors }) {
+      props.login(values, error => {
+        setSubmitting(false);
+        if(error) {
+          props.setMessage(error.message);
+        } else {
+          props.setMessage('');
+        }
+      });
     }
-    if (!values.password) {
-      errors.password = 'Password is required!';
-    }
-    return errors;
-  },
-  async handleSubmit(values, { props, setSubmitting, setErrors }) {
-    try {
-      const user = await loginApi(values);
-      setSubmitting(false);
-      props.login({ user });
-    } catch (err) {
-      setSubmitting(false);
-      setErrors(transformApiErrors(err));
-    }
-  }
-})(InnerLoginForm);
+  })
+)(InnerLoginForm);
 
-const Login = ({ login, loggedIn }) =>
+const Login = ({ error, login, loggedIn }) =>
   loggedIn ? (
     <Redirect to="/" />
   ) : (
     <Container>
-      <LoginForm login={login} />
+      <LoginForm error={error} login={login} />
     </Container>
   );
 

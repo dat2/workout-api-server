@@ -12,9 +12,9 @@ error_chain! {
     VarError(::std::env::VarError);
   }
   errors {
-    UserOrPasswordIncorrect(user: String) {
-      description("user or password incorrect")
-      display("user or password incorrect: '{}'", user)
+    UsernameOrPasswordIncorrect {
+      description("Username or Password incorrect!")
+      display("Username or Password incorrect!")
     }
     EmailAlreadyRegistered(email: String) {
       description("email already registered")

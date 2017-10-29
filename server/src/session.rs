@@ -84,6 +84,6 @@ impl<'a, 'r> FromRequest<'a, 'r> for Session {
 
     token.get(&conn)
       .map_err(|_| ())
-      .into_outcome(Status::BadRequest)
+      .into_outcome(Status::InternalServerError)
   }
 }

@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "email-validator": "^1.1.1",
     "formik": "^0.9.4",
     "polished": "^1.8.1",
     "react": "^16.0.0",
@@ -16,7 +15,8 @@
     "redux": "^3.7.2",
     "redux-saga": "^0.16.0",
     "redux-saga-fetch": "^0.3.0",
-    "styled-components": "^2.2.2"
+    "styled-components": "^2.2.2",
+    "yup": "^0.23.0"
   },
   "devDependencies": {
     "prettier": "^1.7.4",

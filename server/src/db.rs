@@ -23,13 +23,13 @@ pub fn find_user_with_username_and_password(conn: &PgConnection,
   let user_result = users.filter(username.eq(query_username))
     .get_result::<User>(conn);
   if user_result.is_err() {
-    bail!(errors::ErrorKind::UserOrPasswordIncorrect(query_username.to_owned()));
+    bail!(errors::ErrorKind::UsernameOrPasswordIncorrect);
   }
   let user = user_result.unwrap();
 
   let password_matches = verify(query_password, &user.password)?;
   if !password_matches {
-    bail!(errors::ErrorKind::UserOrPasswordIncorrect(query_username.to_owned()));
+    bail!(errors::ErrorKind::UsernameOrPasswordIncorrect);
   }
 
   Ok(user)

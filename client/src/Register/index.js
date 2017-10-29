@@ -1,7 +1,7 @@
 import React from 'react';
 import { withFormik } from 'formik';
 import { Redirect } from 'react-router';
-import { validate } from 'email-validator';
+import Yup from 'yup';
 
 import {
   Container,
@@ -12,22 +12,6 @@ import {
   Message,
   Button
 } from '../Forms/Styles';
-
-function registerApi(body) {
-  const headers = new Headers();
-  headers.append('Content-Type', 'application/json');
-
-  return fetch('/api/register', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    credentials: 'include'
-  }).then(response => response.json());
-}
-
-function transformApiErrors(errors) {
-  return {};
-}
 
 const InnerRegisterForm = ({
   errors,
@@ -98,46 +82,43 @@ const InnerRegisterForm = ({
   </Form>
 );
 
+function equalTo(ref, message) {
+  return this.test({
+    name: 'equalTo',
+    exclusive: false,
+    message,
+    params: {
+      reference: ref.path
+    },
+    test(value) {
+      return value === this.resolve(ref)
+    }
+  });
+}
+
+Yup.addMethod(Yup.string, 'equalTo', equalTo);
+
 const RegisterForm = withFormik({
+  validationSchema: Yup.object().shape({
+    email: Yup.string().email().required('Email is required!'),
+    username: Yup.string().required('Username is required!'),
+    password: Yup.string().required('Password is required!'),
+    password2: Yup.string().equalTo(Yup.ref('password'), 'Passwords do not match!')
+  }),
   mapPropsToValues: props => ({
     email: '',
     username: '',
     password: '',
     password2: ''
   }),
-  validate(values, props) {
-    const errors = {};
-    if (!values.email) {
-      errors.email = 'Email is required!';
-    } else if (!validate(values.email)) {
-      errors.email = 'Email is not valid!';
-    }
-    if (!values.username) {
-      errors.username = 'Username is required!';
-    }
-    if (!values.password) {
-      errors.password = 'Password is required!';
-    }
-    if (!values.password2) {
-      errors.password2 = 'Password is required!';
-    }
-    if (values.password !== values.password2) {
-      errors.password2 = 'Passwords do not match!';
-    }
-    return errors;
-  },
-  async handleSubmit(
+  handleSubmit(
     { password2, ...values },
     { props, setSubmitting, setErrors }
   ) {
-    try {
-      const user = await registerApi(values);
+    props.register(values, error => {
       setSubmitting(false);
-      props.login({ user });
-    } catch (err) {
-      setSubmitting(false);
-      setErrors(transformApiErrors(err));
-    }
+      setErrors(error);
+    });
   }
 })(InnerRegisterForm);
 

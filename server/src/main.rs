@@ -33,12 +33,39 @@ mod session;
 use db_conn::DbConn;
 use dotenv::dotenv;
 use redis_conn::RedisConn;
-use rocket::http::Cookies;
+use rocket::http::{Cookies, Status};
+use rocket::request::Request;
+use rocket::response::{Responder, Response};
 use rocket::response::status::Created;
 use rocket_contrib::Json;
 use session::Session;
 use std::convert::From;
 
+// error handling
+#[derive(Serialize)]
+struct ErrorMessage {
+  message: String,
+}
+
+impl ErrorMessage {
+  fn new(error: errors::Error) -> ErrorMessage {
+    ErrorMessage {
+      message: error.to_string()
+    }
+  }
+}
+
+impl<'r> Responder<'r> for errors::Error {
+  fn respond_to(self, request: &Request) -> Result<Response<'r>, Status> {
+    Json(ErrorMessage::new(self)).respond_to(request)
+      .map(|mut response| {
+        response.set_status(Status::InternalServerError);
+        response
+      })
+  }
+}
+
+// session stuff
 #[derive(Serialize)]
 struct User {
   id: i32,

@@ -3,9 +3,10 @@ import { connect } from 'react-redux';
 import Login from '.';
 import { login } from '../session';
 
-function mapStateToProps({ session: { loggedIn } }) {
+function mapStateToProps({ session: { loggedIn, error } }) {
   return {
-    loggedIn
+    loggedIn,
+    error
   };
 }
 
